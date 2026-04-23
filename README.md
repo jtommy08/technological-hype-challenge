@@ -82,4 +82,4 @@ technological-hype/
 
 ## 👨‍💻 Author
 
-Your Name
+Jose Tomas Suarez Acero
