@@ -71,4 +71,4 @@ http://localhost:3000/api/videos
 
 ## 👨‍💻 Author
 
-Your Name
+Jose Tomas Suarez Acero
