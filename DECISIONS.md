@@ -279,25 +279,3 @@ const query = useVideos({ search, ... });  // Re-fetch only when search changes
 **Approach:** AI as **documentation and debugging assistant**
 
 ---
-
-##  Final Notes
-
-### Solution Highlights
-1. **Strict compliance with requirements**: All business rules implemented exactly as specified
-2. **Robust testing**: Unit tests for critical logic (Hype, dates, controller)
-3. **Careful UX**: Loading/error states, animations, visual feedback
-4. **Clean code**: Separation of concerns, pure functions, descriptive naming
-5. **Inline documentation**: Comments where logic isn't obvious
-
-### Future Improvements (Out of Scope)
-- Implement Redis caching to improve performance
-- Add DTO validation with `class-validator`
-- E2E tests with Cypress
-- Deployment on Vercel (frontend) + Railway (backend)
-- Implement infinite scroll instead of traditional pagination
-- Add filters by date range or author
-
----
-
-**Built with:** NestJS, React, TypeScript, TanStack Query, Tailwind CSS, shadcn/ui  
-**Delivery date:** April 2026
