@@ -1,52 +1,52 @@
 # DECISIONS.md
 
-## 📋 Enfoque General de la Solución
+## General Solution Approach
 
-La solución fue diseñada como una **aplicación fullstack** con separación clara entre backend y frontend, siguiendo el patrón **API REST** para la comunicación entre ambas capas.
+The solution was designed as a **fullstack application** with clear separation between backend and frontend, following the **REST API** pattern for communication between both layers.
 
-### Arquitectura
-- **Backend (NestJS)**: Procesa los datos del mock JSON, calcula el "Nivel de Hype" según las reglas de negocio, y expone un endpoint REST.
-- **Frontend (React + TypeScript)**: Consume la API, renderiza la interfaz de usuario con estados de carga/error, y destaca visualmente "La Joya de la Corona".
+### Architecture
+- **Backend (NestJS)**: Processes data from the mock JSON, calculates the "Hype Level" according to business rules, and exposes a REST endpoint.
+- **Frontend (React + TypeScript)**: Consumes the API, renders the user interface with loading/error states, and visually highlights "The Crown Jewel".
 
-### Flujo de Datos
-1. El backend lee el archivo `videos.mock.json` (simulando la respuesta de YouTube)
-2. Transforma cada video aplicando las reglas de negocio (Hype, fechas relativas)
-3. Identifica la "Joya de la Corona" (mayor Hype del dataset completo)
-4. Expone los datos a través de `/api/videos` con soporte para búsqueda, ordenamiento y paginación
-5. El frontend consume este endpoint y renderiza la cartelera
+### Data Flow
+1. Backend reads the `videos.mock.json` file (simulating YouTube's response)
+2. Transforms each video by applying business rules (Hype, relative dates)
+3. Identifies "The Crown Jewel" (highest Hype from the complete dataset)
+4. Exposes data through `/api/videos` with support for search, sorting, and pagination
+5. Frontend consumes this endpoint and renders the billboard
 
 ---
 
-## ⚙️ Decisiones Técnicas Principales
+## Main Technical Decisions
 
 ### Backend (NestJS)
 
-#### 1. Cálculo del Nivel de Hype
-**Implementación:** `hype-calculator.util.ts`
+#### 1. Hype Level Calculation
+**Implementation:** `hype-calculator.util.ts`
 
 ```typescript
-// Fórmula base: (likes + comentarios) / vistas
+// Base formula: (likes + comments) / views
 let hype = (likes + comments) / views;
 
-// Modificador x2 si el título contiene "tutorial" (case-insensitive)
+// x2 multiplier if title contains "tutorial" (case-insensitive)
 if (snippet.title.toLowerCase().includes('tutorial')) {
   hype *= 2;
 }
 ```
 
-**Decisiones clave:**
-- ✅ **Regla de comentarios desactivados como prioridad máxima**: Si `commentCount` es `undefined` o `null`, retorna `0` inmediatamente, sin importar otras condiciones (incluso si tiene "Tutorial" en el título)
-- ✅ **Validación de views**: Si `views <= 0`, retorna `0` para evitar divisiones por cero o resultados infinitos
-- ✅ **Case-insensitive matching**: Uso de `.toLowerCase()` para detectar "Tutorial", "TUTORIAL", "tUtOriAl", etc.
-- ✅ **Valores numéricos normalizados**: Conversión explícita a `Number()` para asegurar operaciones aritméticas correctas
+**Key decisions:**
+- **Disabled comments rule as maximum priority**: If `commentCount` is `undefined` or `null`, returns `0` immediately, regardless of other conditions (even if title has "Tutorial")
+- **Views validation**: If `views <= 0`, returns `0` to avoid division by zero or infinite results
+- **Case-insensitive matching**: Using `.toLowerCase()` to detect "Tutorial", "TUTORIAL", "tUtOriAl", etc.
+- **Normalized numeric values**: Explicit conversion to `Number()` to ensure correct arithmetic operations
 
-#### 2. Transformación de Fechas (Sin Librerías)
-**Implementación:** `relative-date.util.ts`
+#### 2. Date Transformation (Without Libraries)
+**Implementation:** `relative-date.util.ts`
 
-**Enfoque:**
-- Cálculo manual de diferencias en segundos entre `now` y `publishedAt`
-- Selección de la **unidad más grande** que se ajuste al rango (años > meses > días > horas > minutos > segundos)
-- Pluralización manual en español ("1 día" vs "5 días")
+**Approach:**
+- Manual calculation of differences in seconds between `now` and `publishedAt`
+- Selection of the **largest unit** that fits the range (years > months > days > hours > minutes > seconds)
+- Manual pluralization in Spanish ("1 día" vs "5 días")
 
 ```typescript
 const UNITS = [
@@ -57,52 +57,52 @@ const UNITS = [
 ];
 ```
 
-**Decisiones clave:**
-- ✅ **Sin dependencias externas**: Cumple estrictamente con la restricción "no uses librerías de fechas"
-- ✅ **Manejo de edge cases**:
-    - Diferencias < 5 segundos → "Hace un momento"
-    - Fechas inválidas → "Fecha desconocida"
-- ✅ **Precisión adaptativa**: Muestra "Hace 1 hora" en lugar de "Hace 90 minutos" (elige la unidad más significativa)
-- ✅ **Testeable**: Acepta un parámetro opcional `now` para facilitar testing con fechas controladas
+**Key decisions:**
+- **No external dependencies**: Strictly complies with "don't use date libraries" restriction
+- **Edge case handling**:
+  - Differences < 5 seconds → "Hace un momento"
+  - Invalid dates → "Fecha desconocida"
+- **Adaptive precision**: Shows "Hace 1 hora" instead of "Hace 90 minutos" (chooses the most significant unit)
+- **Testable**: Accepts optional `now` parameter to facilitate testing with controlled dates
 
-#### 3. Identificación de "La Joya de la Corona"
-**Lógica:** `videos.service.ts` → método `pickCrownJewelId()`
+#### 3. "Crown Jewel" Identification
+**Logic:** `videos.service.ts` → `pickCrownJewelId()` method
 
-**Decisión importante:**
-- La Joya se elige sobre el **dataset completo** (antes de filtrar/paginar)
-- Esto asegura que siempre se muestre el video con mayor Hype global, independientemente de los filtros aplicados
-- Videos con `hypeLevel <= 0` son automáticamente descalificados
+**Important decision:**
+- The Jewel is chosen from the **complete dataset** (before filtering/pagination)
+- This ensures the video with the highest global Hype is always shown, regardless of applied filters
+- Videos with `hypeLevel <= 0` are automatically disqualified
 
-#### 4. Arquitectura del Backend
-**Patrón:** Controller-Service
+#### 4. Backend Architecture
+**Pattern:** Controller-Service
 
 ```
-VideosController → VideosService → Utilidades
+VideosController → VideosService → Utilities
      ↓                  ↓              ↓
-  Validación      Lógica de       Cálculos
-  de params       negocio         puros
+  Validation      Business logic    Pure
+  of params                       calculations
 ```
 
-**Decisiones:**
-- ✅ **Validación robusta de query params**: Parseo manual con valores por defecto y límites (ej: `limit` máximo de 50)
-- ✅ **Separación de responsabilidades**:
-    - Controller: validación HTTP, parseo de parámetros
-    - Service: lógica de negocio, transformación de datos
-    - Utils: funciones puras y reutilizables
-- ✅ **Documentación con Swagger**: Endpoint `/api/docs` para explorar la API interactivamente
-- ✅ **CORS configurado**: Permite requests desde `localhost:*` para desarrollo local
+**Decisions:**
+- **Robust query param validation**: Manual parsing with defaults and limits (e.g., max `limit` of 50)
+- **Separation of concerns**:
+  - Controller: HTTP validation, parameter parsing
+  - Service: business logic, data transformation
+  - Utils: pure and reusable functions
+- **Swagger documentation**: `/api/docs` endpoint to explore the API interactively
+- **CORS configured**: Allows requests from `localhost:*` for local development
 
 ---
 
 ### Frontend (React + TypeScript)
 
-#### 1. Gestión de Estado y Data Fetching
-**Herramienta:** TanStack Query (React Query)
+#### 1. State Management and Data Fetching
+**Tool:** TanStack Query (React Query)
 
-**Decisiones:**
-- ✅ **Caché inteligente**: `staleTime: 30_000` (30 segundos) para evitar re-fetches innecesarios
-- ✅ **Estados granulares**: Manejo separado de `isLoading`, `isError`, `isFetching` para UX precisa
-- ✅ **Refetch manual**: Botón de "Reintentar" en vista de error
+**Decisions:**
+- **Smart caching**: `staleTime: 30_000` (30 seconds) to avoid unnecessary re-fetches
+- **Granular states**: Separate handling of `isLoading`, `isError`, `isFetching` for precise UX
+- **Manual refetch**: "Retry" button in error view
 
 ```typescript
 const query = useVideos({
@@ -110,195 +110,194 @@ const query = useVideos({
 });
 ```
 
-#### 2. Diseño de "La Joya de la Corona" 👑
-**Componente:** `joya-card.tsx`
+#### 2. "Crown Jewel" Design 
+**Component:** `joya-card.tsx`
 
-**Diferenciación visual implementada:**
-- ✅ **Layout destacado**: Grid 2 columnas en desktop (imagen + info), ocupa más espacio que cards normales
-- ✅ **Efectos visuales únicos**:
-    - Border dorado de 2px (`border-amber-400`)
-    - Shadow personalizado con glow amber (`shadow-[0_0_0_4px_rgba(245,158,11,0.15)]`)
-    - Gradiente radial de fondo con opacidad 15%
-    - Ring dorado con `ring-amber-400/40`
-- ✅ **Badge distintivo**: "La Joya de la Corona" con icono de corona (`<Crown />`)
-- ✅ **Animación de progreso**: El nivel de Hype se anima de 0 a su valor real al renderizar
-- ✅ **Tipografía destacada**: Título en 3xl/4xl (vs 1xl en cards normales)
+**Visual differentiation implemented:**
+- **Featured layout**: 2-column grid on desktop (image + info), takes more space than normal cards
+- **Unique visual effects**:
+  - 2px golden border (`border-amber-400`)
+  - Custom shadow with amber glow (`shadow-[0_0_0_4px_rgba(245,158,11,0.15)]`)
+  - Radial gradient background with 15% opacity
+  - Golden ring with `ring-amber-400/40`
+- **Distinctive badge**: "La Joya de la Corona" with crown icon (`<Crown />`)
+- **Progress animation**: Hype level animates from 0 to its actual value on render
+- **Featured typography**: Title in 3xl/4xl (vs 1xl in normal cards)
 
-#### 3. Manejo de Estados de Carga y Error
+#### 3. Loading and Error State Handling
 
-**Estados implementados:**
+**Implemented states:**
 
-| Estado | Condición | Vista |
-|--------|-----------|-------|
-| `isInitialLoading` | Primera carga | Skeleton loaders |
-| `isError` | Fallo en fetch | Alert con mensaje + botón retry |
-| `isEmpty` | Sin resultados | Card con mensaje amigable |
-| `isSuccess` | Datos cargados | Joya + Grid de videos |
-| `isFetching` | Refetch en background | Opacity reducido (70%) |
+| State | Condition | View |
+|-------|-----------|------|
+| `isInitialLoading` | First load | Skeleton loaders |
+| `isError` | Fetch failure | Alert with message + retry button |
+| `isEmpty` | No results | Card with friendly message |
+| `isSuccess` | Data loaded | Jewel + Video grid |
+| `isFetching` | Background refetch | Reduced opacity (70%) |
 
-**Decisión clave:** UX no bloqueante durante refetch (se mantiene contenido visible con opacity bajado)
+**Key decision:** Non-blocking UX during refetch (content remains visible with lowered opacity)
 
-#### 4. Funcionalidades Implementadas
+#### 4. Implemented Features
 
-**Búsqueda:**
-- Input con debounce implícito (re-render controlado por React)
-- Busca en `title` y `author` (case-insensitive en backend)
-- Resetea paginación a página 1 al buscar
+**Search:**
+- Input with implicit debounce (controlled by React re-render)
+- Searches in `title` and `author` (case-insensitive on backend)
+- Resets pagination to page 1 when searching
 
-**Ordenamiento:**
-- 4 criterios: Hype, Publicación, Título, Autor
-- Toggle ASC/DESC con indicador visual
-- Disabled cuando no hay criterio seleccionado
+**Sorting:**
+- 4 criteria: Hype, Published Date, Title, Author
+- ASC/DESC toggle with visual indicator
+- Disabled when no criterion is selected
 
-**Paginación:**
-- 9 videos por página
-- Controles Prev/Next con disable en límites
-- Indicador visual de página actual
+**Pagination:**
+- 9 videos per page
+- Prev/Next controls with disable at limits
+- Visual indicator of current page
 
-#### 5. Persistencia en URL
-**Hook custom:** `useSearchParams`
+#### 5. URL Persistence
+**Custom hook:** `useSearchParams`
 
-**Decisión:** Todos los filtros se reflejan en la URL query string:
+**Decision:** All filters are reflected in the URL query string:
 ```
 ?search=tutorial&sortBy=hypeLevel&order=desc&page=2
 ```
 
-**Beneficios:**
-- ✅ URLs compartibles con estado completo
-- ✅ Navegación browser (back/forward) funciona correctamente
-- ✅ Refresh mantiene los filtros aplicados
+**Benefits:**
+- Shareable URLs with complete state
+- Browser navigation (back/forward) works correctly
+- Refresh maintains applied filters
 
 ---
 
-
-**Decisiones de organización:**
-- ✅ Monorepo-style con carpetas independientes (no Nx/Turborepo por simplicidad)
-- ✅ Cada capa tiene su propio `package.json` y puede ejecutarse independientemente
-- ✅ Tests junto al código (co-location para mejor mantenibilidad)
-- ✅ Utilidades puras en carpetas `/utils` (fácilmente testeables y reutilizables)
-
----
-
-## 🧩 Supuestos y Simplificaciones
-
-### Supuestos
-1. **Datos válidos**: Se asume que el JSON mock tiene estructura correcta (no se valida con Zod/class-validator)
-2. **Ambiente de desarrollo**: CORS solo permite `localhost:*` (producción requeriría configuración adicional)
-3. **Sin autenticación**: Endpoint público sin JWT/API keys
-4. **Datos estáticos**: El mock se lee del disco en cada request (en producción iría a base de datos)
-
-### Simplificaciones
-1. **Sin persistencia**: No hay base de datos; los datos viven en memoria/archivo
-2. **Sin rate limiting**: Endpoint sin throttling ni protección DDoS
-3. **Error handling básico**: Errores HTTP genéricos (no códigos de error custom por tipo de fallo)
-4. **Sin internacionalización**: Todo hardcodeado en español
-5. **Sin tests E2E**: Solo tests unitarios (no Cypress/Playwright)
+**Organization decisions:**
+- Monorepo-style with independent folders (not Nx/Turborepo for simplicity)
+- Each layer has its own `package.json` and can run independently
+- Tests alongside code (co-location for better maintainability)
+- Pure utilities in `/utils` folders (easily testable and reusable)
 
 ---
 
-## ⚠️ Problemas Encontrados y Soluciones
+## Assumptions and Simplifications
 
-### 1. ❌ División por cero en cálculo de Hype
-**Problema:** Videos con 0 vistas causaban `Infinity` o `NaN`
+### Assumptions
+1. **Valid data**: Assumes mock JSON has correct structure (no validation with Zod/class-validator)
+2. **Development environment**: CORS only allows `localhost:*` (production would require additional configuration)
+3. **No authentication**: Public endpoint without JWT/API keys
+4. **Static data**: Mock is read from disk on each request (production would use database)
 
-**Solución:**
+### Simplifications
+1. **No persistence**: No database; data lives in memory/file
+2. **No rate limiting**: Endpoint without throttling or DDoS protection
+3. **Basic error handling**: Generic HTTP errors (no custom error codes per failure type)
+4. **No internationalization**: Everything hardcoded in Spanish
+5. **No E2E tests**: Only unit tests (no Cypress/Playwright)
+
+---
+
+## ⚠️ Problems Encountered and Solutions
+
+### 1. Division by zero in Hype calculation
+**Problem:** Videos with 0 views caused `Infinity` or `NaN`
+
+**Solution:**
 ```typescript
 if (!Number.isFinite(views) || views <= 0) {
   return 0;
 }
 ```
 
-### 2. ❌ "Tutorial" no detectado en mayúsculas
-**Problema:** La prueba inicial usaba `title.includes('tutorial')` (case-sensitive)
+### 2. "Tutorial" not detected in uppercase
+**Problem:** Initial test used `title.includes('tutorial')` (case-sensitive)
 
-**Solución:**
+**Solution:**
 ```typescript
 snippet.title.toLowerCase().includes('tutorial')
 ```
 
-### 3. ❌ Joya cambiaba al paginar/filtrar
-**Problema:** La Joya se elegía DESPUÉS de filtrar, causando que cambiara según la página
+### 3. Jewel changed when paginating/filtering
+**Problem:** Jewel was chosen AFTER filtering, causing it to change by page
 
-**Solución:** Mover `pickCrownJewelId()` antes de `applyFilter()` en el service:
+**Solution:** Move `pickCrownJewelId()` before `applyFilter()` in service:
 ```typescript
-const crownJewelId = this.pickCrownJewelId(enriched);  // ANTES de filtrar
+const crownJewelId = this.pickCrownJewelId(enriched);  // BEFORE filtering
 const filtered = this.applyFilter(enriched, query.search);
 ```
 
-### 4. ❌ Fechas futuras mostraban valores negativos
-**Problema:** Videos con `publishedAt` en el futuro generaban textos como "Hace -5 días"
+### 4. Future dates showed negative values
+**Problem:** Videos with `publishedAt` in the future generated texts like "Hace -5 días"
 
-**Solución:** Validación en `toRelativeSpanish()`:
+**Solution:** Validation in `toRelativeSpanish()`:
 ```typescript
 if (diffSeconds < 5) {
-  return 'Hace un momento';  // Maneja casos < 0 también
+  return 'Hace un momento';  // Also handles cases < 0
 }
 ```
 
-### 5. ❌ Query params duplicados en URL
-**Problema:** Al cambiar filtros, se acumulaban parámetros en la URL
+### 5. Duplicate query params in URL
+**Problem:** When changing filters, parameters accumulated in URL
 
-**Solución:** Función `patchParams()` que limpia valores nulos/vacíos:
+**Solution:** `patchParams()` function that cleans null/empty values:
 ```typescript
 if (v === null || v === '') next.delete(k)
 else next.set(k, v)
 ```
 
-### 6. ❌ Re-renders excesivos en búsqueda
-**Problema:** Cada tecla en el input causaba un fetch nuevo
+### 6. Excessive re-renders on search
+**Problem:** Each keystroke in input caused a new fetch
 
-**Solución:** React Query ya hace debouncing implícito con `staleTime`, pero además agregué:
+**Solution:** React Query already does implicit debouncing with `staleTime`, but also added:
 ```typescript
-const query = useVideos({ search, ... });  // Re-fetch solo cuando search cambia
+const query = useVideos({ search, ... });  // Re-fetch only when search changes
 ```
 
 ---
 
-## 🤖 Uso de Herramientas de IA
+##  Use of AI Tools
 
-### Documentación y Comprensión de Conceptos
-- _"Explícame las mejores prácticas para estructurar un servicio NestJS con transformación de datos"_
-- _"¿Cómo calcular diferencias de tiempo en JavaScript nativo sin usar moment.js o date-fns?"_
-- _"Diferencias entre React Query y SWR para data fetching"_
-- _"¿Qué es mejor para validación de query params en NestJS: Pipes o validación manual?"_
+### Documentation and Concept Understanding
+- _"Explain best practices for structuring a NestJS service with data transformation"_
+- _"How to calculate time differences in native JavaScript without using moment.js or date-fns?"_
+- _"Differences between React Query and SWR for data fetching"_
+- _"What's better for query param validation in NestJS: Pipes or manual validation?"_
 
-### Diseño de UI y Componentes
-- _"Ideas para destacar visualmente un elemento 'hero' en una grilla de cards con Tailwind CSS"_
-- _"Cómo hacer un skeleton loader realista en React con Tailwind"_
-- _"Mejores prácticas para animaciones de progreso con CSS/Tailwind"_
-- _"Paleta de colores para tema dark/light que funcione bien para destacar un elemento dorado"_
+### UI and Component Design
+- _"Ideas to visually highlight a 'hero' element in a card grid with Tailwind CSS"_
+- _"How to create a realistic skeleton loader in React with Tailwind"_
+- _"Best practices for progress animations with CSS/Tailwind"_
+- _"Color palette for dark/light theme that works well for highlighting a golden element"_
 
-### Debugging y Optimización
-- _"Por qué mi cálculo de Hype devuelve NaN en algunos videos"_ → Llevó a descubrir el problema de división por cero
-- _"React Query refetchea en cada render, ¿cómo optimizar?"_ → Configuración de `staleTime`
-- _"CORS error en NestJS al hacer fetch desde React"_ → Configuración correcta de `enableCors()`
+### Debugging and Optimization
+- _"Why does my Hype calculation return NaN on some videos"_ → Led to discovering the division by zero problem
+- _"React Query refetches on every render, how to optimize?"_ → `staleTime` configuration
+- _"CORS error in NestJS when fetching from React"_ → Correct `enableCors()` configuration
 
 ### Testing
-- _"Cómo testear utilidades que dependen de Date.now() en Jest"_ → Llevó a inyectar `now` como parámetro
-- _"Estrategias para testear transformaciones de datos sin mockear todo"_ → Tests con builders (`buildItem()`)
+- _"How to test utilities that depend on Date.now() in Jest"_ → Led to injecting `now` as parameter
+- _"Strategies for testing data transformations without mocking everything"_ → Tests with builders (`buildItem()`)
 
-**Enfoque:** IA como **asistente de documentación y debugging**
-
----
-
-## 🎯 Notas Finales
-
-### Aspectos Destacados de la Solución
-1. **Cumplimiento estricto de requisitos**: Todas las reglas de negocio implementadas exactamente como se especificaron
-2. **Testing robusto**: Tests unitarios para lógica crítica (Hype, fechas, controller)
-3. **UX cuidada**: Estados de carga/error, animaciones, feedback visual
-4. **Código limpio**: Separación de responsabilidades, funciones puras, naming descriptivo
-5. **Documentación inline**: Comentarios donde la lógica no es obvia
-
-### Mejoras Futuras (Out of Scope)
-- Implementar caché con Redis para mejorar performance
-- Agregar validación de DTOs con `class-validator`
-- Tests E2E con Cypress
-- Deployment en Vercel (frontend) + Railway (backend)
-- Implementar infinite scroll en lugar de paginación tradicional
-- Agregar filtros por rango de fechas o autor
+**Approach:** AI as **documentation and debugging assistant**
 
 ---
 
-**Desarrollado con:** NestJS, React, TypeScript, TanStack Query, Tailwind CSS, shadcn/ui  
-**Fecha de entrega:** 23 de Abril 2026
+##  Final Notes
+
+### Solution Highlights
+1. **Strict compliance with requirements**: All business rules implemented exactly as specified
+2. **Robust testing**: Unit tests for critical logic (Hype, dates, controller)
+3. **Careful UX**: Loading/error states, animations, visual feedback
+4. **Clean code**: Separation of concerns, pure functions, descriptive naming
+5. **Inline documentation**: Comments where logic isn't obvious
+
+### Future Improvements (Out of Scope)
+- Implement Redis caching to improve performance
+- Add DTO validation with `class-validator`
+- E2E tests with Cypress
+- Deployment on Vercel (frontend) + Railway (backend)
+- Implement infinite scroll instead of traditional pagination
+- Add filters by date range or author
+
+---
+
+**Built with:** NestJS, React, TypeScript, TanStack Query, Tailwind CSS, shadcn/ui  
+**Delivery date:** April 2026
