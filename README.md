@@ -57,6 +57,7 @@ http://localhost:5173
 
 ```bash
 GET http://localhost:3000/api/videos
+GET http://localhost:3000/api/docs (swagger)
 ```
 
 ---
