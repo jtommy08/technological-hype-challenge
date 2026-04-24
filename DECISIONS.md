@@ -195,7 +195,7 @@ const query = useVideos({
 
 ---
 
-## ⚠️ Problems Encountered and Solutions
+## Problems Encountered and Solutions
 
 ### 1. Division by zero in Hype calculation
 **Problem:** Videos with 0 views caused `Infinity` or `NaN`
